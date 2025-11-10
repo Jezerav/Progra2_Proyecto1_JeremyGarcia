@@ -41,4 +41,9 @@ public final class Lobo extends Pieza {
         // Vampiro no conjura nada, devuelve vacío
         return new ArrayList<>();
     }
+    
+    @Override
+    public String getTipo() {
+        return "Lobo";
+    }
 }

@@ -4,6 +4,8 @@
  */
 package Juego;
 
+
+
 import LogicaJuego.Player;
 import java.util.ArrayList;
 import java.util.List;
@@ -13,7 +15,7 @@ public class Zombie extends Pieza {
     private int fila, col;
 
     public Zombie(Player retador, String nombreArchivo, int fila, int col) {
-        super(retador, 2, 1, 1, nombreArchivo);
+        super(retador, 1, 1, 0, nombreArchivo);
         this.fila = fila;
         this.col = col;
         // Imagen ya cargada desde Pieza
@@ -72,5 +74,9 @@ public class Zombie extends Pieza {
     public void setImagen(String nombreArchivo){
         cargarImagen(nombreArchivo); // Llama al método protegido de Pieza
     }
+    
+     @Override
+    public String getTipo() {
+        return "Zombie";
+    }
 }
-

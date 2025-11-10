@@ -33,16 +33,23 @@ public class Tablero extends JFrame {
     private Pieza zombieSeleccionado = null;
 
     private JLabel lblTurno, lblAtaqueEspecial, lblRuleta;
-    private JButton btnEspecial, btnDesactivarEspecial;
+    private JButton btnEspecial, btnDesactivarEspecial, btnPararRuleta;
+    
 
     private final Color vino = new Color(90, 0, 40);
     private final Color negro = new Color(0, 0, 0);
-    private final Color movimientoColor = Color.PINK;
-    private final Color especialColor = new Color(150, 0, 0);
+    private final Color movimientoColor = Color.ORANGE;
+    private final Color especialColor = Color.MAGENTA;
 
+    // --- Ruleta ---
+    private RuletaPanel ruletaPanel;
     private Timer timerRuleta;
-    private ImageIcon[] ruletaIcons;
-    private int giroActual = 0, totalGiros = 0, velocidad = 150;
+    private boolean girandoRuleta = false;
+    private String piezaActualRuleta = null;
+    private double velocidadInercia;
+    private boolean ruletaDetenida = false; // indica si ya se puede seleccionar piezas
+
+    private JPanel panelDerecha;
 
     public Tablero(Player j1, Player j2) {
         jugador1 = j1;
@@ -58,18 +65,17 @@ public class Tablero extends JFrame {
 
         initUI();
         inicializarPiezas();
-        cargarRuleta();
+        iniciarRuleta(); // configura la ruleta lista para girar
         girarRuleta();
     }
 
-    // -------------------- INTERFAZ --------------------
     private void initUI() {
         JPanel panelPrincipal = new JPanel(new BorderLayout());
         panelPrincipal.setBackground(negro);
         panelPrincipal.setBorder(BorderFactory.createEmptyBorder(30, 30, 30, 30));
         add(panelPrincipal);
 
-        // Panel superior
+        // --- Panel superior ---
         JPanel panelSuperior = new JPanel(new BorderLayout());
         panelSuperior.setBackground(negro);
         lblTurno = new JLabel("Turno: " + jugadorActual.getUsername(), SwingConstants.CENTER);
@@ -82,80 +88,64 @@ public class Tablero extends JFrame {
         panelSuperior.add(lblAtaqueEspecial, BorderLayout.SOUTH);
         panelPrincipal.add(panelSuperior, BorderLayout.NORTH);
 
-        // Panel derecho: ruleta + botones
-        JPanel panelDerecha = new JPanel();
+        // ---------- PANEL DERECHO ----------
+        panelDerecha = new JPanel();
         panelDerecha.setBackground(negro);
         panelDerecha.setLayout(new BoxLayout(panelDerecha, BoxLayout.Y_AXIS));
+        panelDerecha.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
+        // Label Ruleta
         lblRuleta = new JLabel("Pieza Ruleta: ?");
         lblRuleta.setForeground(Color.WHITE);
         lblRuleta.setFont(new Font("Arial", Font.BOLD, 16));
         lblRuleta.setAlignmentX(Component.CENTER_ALIGNMENT);
         panelDerecha.add(lblRuleta);
-        panelDerecha.add(Box.createRigidArea(new Dimension(0,10)));
-
-        btnEspecial = new JButton("Usar Especial");
-        btnDesactivarEspecial = new JButton("Desactivar Especial");
-        JButton[] botones = {btnEspecial, btnDesactivarEspecial};
-
-        for(JButton b : botones){
-            b.setFont(new Font("Arial", Font.BOLD, 16));
-            b.setForeground(Color.WHITE);
-            b.setBackground(vino);
-            b.setFocusPainted(false);
-            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            b.setAlignmentX(Component.CENTER_ALIGNMENT);
-            panelDerecha.add(Box.createRigidArea(new Dimension(0,10)));
-            panelDerecha.add(b);
-        }
+        panelDerecha.add(Box.createRigidArea(new Dimension(0, 10)));
 
         panelPrincipal.add(panelDerecha, BorderLayout.EAST);
 
-        // Panel tablero
-        JPanel panelTablero = new JPanel(new GridLayout(6,6,2,2));
+        // --- Panel Tablero ---
+        JPanel panelTablero = new JPanel(new GridLayout(6, 6, 2, 2));
         panelTablero.setBackground(negro);
-        for(int i=0;i<6;i++){
-            for(int j=0;j<6;j++){
+        for (int i = 0; i < 6; i++) {
+            for (int j = 0; j < 6; j++) {
                 JButton btn = new JButton();
-                btn.setPreferredSize(new Dimension(80,80));
+                btn.setPreferredSize(new Dimension(80, 80));
                 btn.setFocusPainted(false);
-                btn.setBackground((i+j)%2==0?Color.GRAY:Color.DARK_GRAY);
-                btn.setBorder(BorderFactory.createLineBorder(Color.BLACK,1));
-                casillas[i][j]=btn;
+                btn.setBackground((i + j) % 2 == 0 ? Color.GRAY : Color.DARK_GRAY);
+                btn.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+                casillas[i][j] = btn;
                 panelTablero.add(btn);
-                final int fila=i,col=j;
-                btn.addActionListener(e -> manejarClick(fila,col));
+                final int fila = i, col = j;
+                btn.addActionListener(e -> manejarClick(fila, col));
             }
         }
         panelPrincipal.add(panelTablero, BorderLayout.CENTER);
 
-        // Panel inferior
+        // --- Panel inferior ---
         JPanel panelInferior = new JPanel();
         panelInferior.setBackground(negro);
-        panelInferior.setBorder(BorderFactory.createEmptyBorder(15,0,0,0));
+        panelInferior.setBorder(BorderFactory.createEmptyBorder(15, 0, 0, 0));
         JButton btnRetirar = new JButton("Retirarse");
         JButton btnVolver = new JButton("Volver al menú");
         JButton[] botonesInf = {btnRetirar, btnVolver};
-        for(JButton b: botonesInf){
+        for (JButton b : botonesInf) {
             b.setFont(new Font("Arial", Font.BOLD, 16));
             b.setForeground(Color.WHITE);
             b.setBackground(vino);
             b.setFocusPainted(false);
             b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            b.setPreferredSize(new Dimension(150,40));
+            b.setPreferredSize(new Dimension(150, 40));
             panelInferior.add(b);
         }
         panelPrincipal.add(panelInferior, BorderLayout.SOUTH);
 
         btnVolver.addActionListener(e -> dispose());
         btnRetirar.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, jugadorActual.getUsername()+" se ha retirado. "+
-                    (jugadorActual==jugador1?jugador2.getUsername():jugador1.getUsername())+" gana.");
+            JOptionPane.showMessageDialog(this, jugadorActual.getUsername() + " se ha retirado. " +
+                    (jugadorActual == jugador1 ? jugador2.getUsername() : jugador1.getUsername()) + " gana.");
             dispose();
         });
-
-        btnEspecial.addActionListener(e -> activarEspecial());
-        btnDesactivarEspecial.addActionListener(e -> limpiarSeleccion());
     }
 
     // -------------------- INICIALIZACIÓN --------------------
@@ -176,40 +166,240 @@ public class Tablero extends JFrame {
 
         actualizarTablero();
     }
+    
+    // -------------------- RULETA --------------------
+    private void iniciarRuleta() {
+        // Crear icons
+        ImageIcon[] icons = new ImageIcon[6];
+        icons[0] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
+        icons[1] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
+        icons[2] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
+        icons[3] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
+        icons[4] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
+        icons[5] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
+
+        for (int i = 0; i < icons.length; i++) {
+            Image img = icons[i].getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+            icons[i] = new ImageIcon(img);
+        }
+
+        // Crear ruleta
+        ruletaPanel = new RuletaPanel(icons);
+        ruletaPanel.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panelDerecha.add(ruletaPanel);
+        panelDerecha.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        // Botón Parar Ruleta
+        btnPararRuleta = new JButton("Parar Ruleta");
+        btnPararRuleta.setFont(new Font("Arial", Font.BOLD, 14));
+        btnPararRuleta.setForeground(Color.WHITE);
+        btnPararRuleta.setBackground(Color.DARK_GRAY);
+        btnPararRuleta.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnPararRuleta.setAlignmentX(Component.CENTER_ALIGNMENT);
+        panelDerecha.add(btnPararRuleta);
+        panelDerecha.add(Box.createRigidArea(new Dimension(0, 15)));
+
+        btnPararRuleta.addActionListener(e -> {
+            if (girandoRuleta) {
+                detenerRuletaConInercia();
+                btnPararRuleta.setEnabled(false);
+            }
+        });
+
+        // Botones especiales
+        btnEspecial = new JButton("Usar Especial");
+        btnDesactivarEspecial = new JButton("Desactivar Especial");
+        JButton[] botones = {btnEspecial, btnDesactivarEspecial};
+        for (JButton b : botones) {
+            b.setFont(new Font("Arial", Font.BOLD, 14));
+            b.setBackground(new Color(60, 0, 0));
+            b.setForeground(Color.WHITE);
+            b.setAlignmentX(Component.CENTER_ALIGNMENT);
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            b.setMaximumSize(new Dimension(180, 40));
+            panelDerecha.add(b);
+            panelDerecha.add(Box.createRigidArea(new Dimension(0, 10)));
+        }
+        btnEspecial.addActionListener(e -> activarEspecial());
+        btnDesactivarEspecial.addActionListener(e -> limpiarMarcado());
+
+    }
+
+    public void girarRuleta() {
+        if (timerRuleta != null && timerRuleta.isRunning()) timerRuleta.stop();
+        girandoRuleta = true;
+        double velocidadRuleta = 20 + Math.random() * 10;
+
+        timerRuleta = new Timer(30, e -> {
+            ruletaPanel.setAngulo(ruletaPanel.getAngulo() + velocidadRuleta);
+            ruletaPanel.setAnguloPiezas(ruletaPanel.getAnguloPiezas() - velocidadRuleta);
+        });
+        timerRuleta.start();
+    }
+
+    public void detenerRuletaConInercia() {
+        if (timerRuleta != null && timerRuleta.isRunning()) timerRuleta.stop();
+        velocidadInercia = 15 + Math.random() * 10;
+
+        Timer timerInercia = new Timer(30, null);
+        long startTime = System.currentTimeMillis();
+
+        timerInercia.addActionListener(ev -> {
+    long elapsed = System.currentTimeMillis() - startTime;
+    if (elapsed < 2000) {
+        ruletaPanel.setAngulo(ruletaPanel.getAngulo() + velocidadInercia);
+        ruletaPanel.setAnguloPiezas(ruletaPanel.getAnguloPiezas() - velocidadInercia);
+        velocidadInercia *= 0.95;
+    } else {
+        timerInercia.stop();
+        girandoRuleta = false;
+
+        int indice = ruletaPanel.getIndiceSeleccionado();
+        String[] tipos = {"Lobo", "Lobo", "Vampiro", "Vampiro", "Necromancer", "Necromancer"};
+        piezaActualRuleta = tipos[indice];
+
+        lblRuleta.setText("Pieza Ruleta: " + piezaActualRuleta);
+        JOptionPane.showMessageDialog(this, "PIEZA DISPONIBLE: " + piezaActualRuleta);
+
+        // ⚡ Habilitar selección de piezas
+        ruletaDetenida = true;
+    }
+});
+
+        timerInercia.start();
+    }
+// Validar pieza según ruleta
+private boolean validarPiezaSeleccionada(Pieza p){
+    if(piezaActualRuleta==null) return true;
+    if(!p.getTipo().equals(piezaActualRuleta)){
+        JOptionPane.showMessageDialog(this,"Pieza no disponible. Solo puedes usar " + piezaActualRuleta);
+        return false;
+    }
+    return true;
+}
+
+// Giros extra según piezas perdidas
+private int calcularGirosExtra(Player jugador){
+    int perdidas = contarPiezasPerdidas(jugador);
+    if(perdidas >= 4) return 3;
+    else if(perdidas >= 2) return 2;
+    else return 1;
+}
+
+private int contarPiezasPerdidas(Player jugador){
+    int total=0;
+    for(int i=0;i<6;i++)
+        for(int j=0;j<6;j++)
+            if(piezas[i][j]!=null && piezas[i][j].getRetador()==jugador) total++;
+    return 6-total;
+}
 
     // -------------------- MANEJO DE CLICK --------------------
-    private void manejarClick(int fila, int col){
-        Pieza p = piezas[fila][col];
-        Point pClick = new Point(fila,col);
+    // Método principal que se llama al hacer clic en el tablero
+private void manejarClick(int fila, int col) {
+    Pieza p = piezas[fila][col];
+    Point pClick = new Point(fila, col);
 
-        // Selección de pieza propia
-        if(p!=null && p.getRetador()==jugadorActual && !(necroOpcion==2 && p instanceof Zombie)){
-            seleccionarPieza(fila,col);
-            if(!modoEspecial || !(piezaSeleccionada instanceof Necromancer))
-                marcarMovimientoDisponible();
+    // 1) Si no hay piezaSeleccionada: intentar seleccionar (ruleta/propiedad/tipo lo valida en seleccionarPieza)
+    if (piezaSeleccionada == null) {
+        seleccionarPieza(fila, col);
+        return;
+    }
+
+    // 2) Caso especial: si ya hay un Necromancer seleccionado y estamos en modoEspecial -> necroOpcion == 2 (ataque por zombie)
+    //    Permitir seleccionar un zombie propio para luego realizar el ataque por zombie.
+    if (modoEspecial && piezaSeleccionada instanceof Necromancer && necroOpcion == 2) {
+        // Si el clic es sobre un zombie propio, lo seleccionamos como zombieSeleccionado y marcamos sus casillas de ataque
+        if (p != null && p instanceof Zombie && p.getRetador() == jugadorActual) {
+            // quitar borde de selección anterior si había (ej: necromancer)
+            if (botonSeleccionado != null) botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+            // marcar zombie seleccionado
+            zombieSeleccionado = (Zombie) p;
+            botonSeleccionado = casillas[fila][col];
+            botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
+            marcarCasillasAtaqueZombie(fila, col);
+            lblAtaqueEspecial.setText("Ataque Especial: Zombie seleccionado");
             return;
         }
 
-        // Modo especial activo
-        if(modoEspecial){
-            if(piezaSeleccionada instanceof Lobo){
-                manejarClickEspecialLobo(fila,col);
-                return;
-            }
-            if(piezaSeleccionada instanceof Necromancer){
-                manejarClickEspecialNecro(fila,col,p);
-                return;
-            }
+        // Si se hace clic en una casilla marcada como objetivo del attack por zombie, delegar al handler
+        if (casillasEspeciales.contains(pClick)) {
+            manejarClickEspecialNecro(fila, col, p);
+            return;
         }
 
-        // Movimiento normal
-        if(piezaSeleccionada!=null && casillasDisponibles.contains(pClick)){
-            manejarClickNormal(fila,col);
-        }
-        
-        
-
+        // Si no es ni zombie propio ni casilla objetivo: informar y salir
+        JOptionPane.showMessageDialog(this, "Selecciona un Zombie propio o una casilla marcada para atacar.");
+        return;
     }
+
+    // 3) Si hay una pieza seleccionada y el clic es sobre otra de tus piezas -> cambiar selección a esa nueva pieza
+    if (p != null && p.getRetador() == jugadorActual) {
+        // permite cambiar selección rápida a otra pieza propia
+        seleccionarPieza(fila, col);
+        return;
+    }
+
+    // 4) Si llegamos aquí, intentamos mover/atacar hacia la casilla (vacía o enemigo)
+    moverPieza(fila, col);
+}
+
+
+
+private void moverPieza(int fila, int col) {
+    // Si no hay pieza seleccionada, nada que hacer
+    if (piezaSeleccionada == null) return;
+
+    // Si estamos en modo especial, delegar a los manejadores correspondientes
+    if (modoEspecial) {
+        if (piezaSeleccionada instanceof Lobo) {
+            // Lobo usa su handler especial (verifica casillasEspeciales dentro del método)
+            manejarClickEspecialLobo(fila, col);
+            return;
+        }
+        if (piezaSeleccionada instanceof Necromancer) {
+            // Necromancer tiene varios sub-modos (conjurar, ataque por zombie, ataque a 2)
+            // pasar la pieza que hay en la casilla para que el handler lo interprete
+            Pieza p = piezas[fila][col];
+            manejarClickEspecialNecro(fila, col, p);
+            return;
+        }
+    }
+
+    // NO modo especial: validar que la casilla destino esté entre las disponibles
+    Point dest = new Point(fila, col);
+    boolean valido = false;
+    for (Point pt : casillasDisponibles) {
+        if (pt.equals(dest)) {
+            valido = true;
+            break;
+        }
+    }
+    if (!valido) {
+        JOptionPane.showMessageDialog(this, "Movimiento inválido. Selecciona una casilla válida.");
+        return;
+    }
+
+    // Si es movimiento/ataque normal: usar resolverCombate que ya tienes
+    resolverCombate(piezaSeleccionada, fila, col);
+
+    // Limpiar selección y marcados (resolverCombate ya actualiza el tablero)
+    if (botonSeleccionado != null) {
+        botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+    }
+    piezaSeleccionada = null;
+    botonSeleccionado = null;
+    seleccionFila = -1;
+    seleccionCol = -1;
+    limpiarMarcado();
+
+    // Finalizar turno (gira ruleta, limpia selección y cambia turno)
+    finalizarTurno();
+}
+
+
+
+
 
     private void manejarClickNormal(int fila, int col){
         resolverCombate(piezaSeleccionada,fila,col);
@@ -312,15 +502,71 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
 
 
     // -------------------- MÉTODOS AUXILIARES --------------------
-    private void seleccionarPieza(int fila,int col){
-        limpiarMarcado();
-        if(botonSeleccionado!=null) botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK,1));
-        piezaSeleccionada=piezas[fila][col];
-        botonSeleccionado=casillas[fila][col];
-        seleccionFila=fila;
-        seleccionCol=col;
-        botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.YELLOW,3));
+   // Método para seleccionar una pieza válida
+private void seleccionarPieza(int fila, int col) {
+    // 1️⃣ Bloquear si la ruleta no se ha detenido
+    if (!ruletaDetenida) {
+        JOptionPane.showMessageDialog(this, "Primero debes detener la ruleta antes de seleccionar una pieza.");
+        return;
     }
+
+    Pieza p = piezas[fila][col];
+
+    // 2️⃣ Validar que la pieza exista
+    if (p == null) {
+        JOptionPane.showMessageDialog(this, "No hay ninguna pieza en esa casilla.");
+        return;
+    }
+
+    // 3️⃣ No permitir seleccionar piezas del rival
+    if (p.getRetador() != jugadorActual) {
+        JOptionPane.showMessageDialog(this, "No puedes seleccionar piezas del rival.");
+        return;
+    }
+
+    // 4️⃣ Validar si la selección es válida según el modo y la ruleta
+    boolean seleccionValida = false;
+
+    if (modoEspecial && piezaSeleccionada instanceof Necromancer && necroOpcion == 2) {
+        // 💀 Ataque por Zombie: permitir seleccionar zombies propios
+        if (p instanceof Zombie) {
+            seleccionValida = true;
+        }
+    } else {
+        // 🧛‍♂️ Turno normal: permitir solo pieza que salió en la ruleta
+        if (piezaActualRuleta == null || p.getTipo().equals(piezaActualRuleta)) {
+            seleccionValida = true;
+        }
+    }
+
+    if (!seleccionValida) {
+        JOptionPane.showMessageDialog(this, "Pieza no disponible. Solo puedes usar " + piezaActualRuleta);
+        return;
+    }
+
+    // 5️⃣ Limpiar selección previa (si había una marcada)
+    if (botonSeleccionado != null) {
+        botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK, 1));
+    }
+
+    // 6️⃣ Marcar la nueva selección
+    piezaSeleccionada = p;
+    botonSeleccionado = casillas[fila][col];
+    seleccionFila = fila;
+    seleccionCol = col;
+    botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.YELLOW, 3));
+
+    // 7️⃣ Marcar movimientos disponibles (solo si no es modo especial del Necromancer)
+    if (!modoEspecial || !(piezaSeleccionada instanceof Necromancer)) {
+        marcarMovimientoDisponible();
+    }
+}
+
+
+
+
+
+
 
     private void marcarMovimientoDisponible(){
         limpiarMarcado();
@@ -360,7 +606,7 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
         }
     }
 
-    private void limpiarMarcado(){
+     private void limpiarMarcado(){
         for(int i=0;i<6;i++) for(int j=0;j<6;j++)
             casillas[i][j].setBackground((i+j)%2==0?Color.GRAY:Color.DARK_GRAY);
         casillasDisponibles.clear();
@@ -369,7 +615,6 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
         necroOpcion=-1;
         lblAtaqueEspecial.setText("Ataque Especial: Ninguno");
     }
-
     private void limpiarSeleccion(){
         if(botonSeleccionado!=null) botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK,1));
         piezaSeleccionada=null;
@@ -417,18 +662,30 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
 
 
 
-    private void finalizarTurno(){
-        limpiarMarcado();
-        limpiarSeleccion();
-        cambiarTurno();
-        girarRuleta();
-    }
+    private void finalizarTurno() {
+    limpiarMarcado();
+    limpiarSeleccion();
+    cambiarTurno();
+
+    // Reiniciar selección y ruleta
+    botonSeleccionado = null;
+    piezaSeleccionada = null;
+    piezaActualRuleta = null;
+    ruletaDetenida = false;
+
+    // Habilitar botón de parar ruleta al inicio del nuevo turno
+    btnPararRuleta.setEnabled(true);
+
+    // Girar ruleta automáticamente al iniciar turno
+    girarRuleta();
+}
 
     private void actualizarTablero(){
         for(int i=0;i<6;i++)
             for(int j=0;j<6;j++)
                 casillas[i][j].setIcon(piezas[i][j]!=null?piezas[i][j].getImagen():null);
     }
+
 
     private void cambiarTurno(){
         jugadorActual=(jugadorActual==jugador1?jugador2:jugador1);
@@ -507,56 +764,5 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
         }
     }
 }
-
-
-    // -------------------- RULETA --------------------
-    private void cargarRuleta(){
-        int w = 100, h = 100;
-        ruletaIcons = new ImageIcon[]{
-            new ImageIcon(getClass().getResource("/Recursos/lobo.png")),
-            new ImageIcon(getClass().getResource("/Recursos/vampiro.png")),
-            new ImageIcon(getClass().getResource("/Recursos/necromancer.png"))
-        };
-        for(int i=0;i<ruletaIcons.length;i++){
-            Image img = ruletaIcons[i].getImage().getScaledInstance(w,h,Image.SCALE_SMOOTH);
-            ruletaIcons[i]=new ImageIcon(img);
-        }
-        lblRuleta.setPreferredSize(new Dimension(w,h));
-        lblRuleta.setHorizontalAlignment(SwingConstants.CENTER);
-        lblRuleta.setVerticalAlignment(SwingConstants.CENTER);
-    }
-
-    private void girarRuleta(){
-        if(timerRuleta!=null && timerRuleta.isRunning()) timerRuleta.stop();
-        giroActual=0;
-        totalGiros=calcularGirosExtra(jugadorActual)*ruletaIcons.length*2;
-        velocidad=100;
-        timerRuleta=new Timer(velocidad,null);
-        timerRuleta.addActionListener(e->{
-            lblRuleta.setIcon(ruletaIcons[giroActual%ruletaIcons.length]);
-            giroActual++;
-            if(giroActual>=totalGiros) timerRuleta.stop();
-            else if(giroActual>totalGiros/2 && velocidad<500){
-                velocidad+=10;
-                timerRuleta.setDelay(velocidad);
-            }
-        });
-        timerRuleta.start();
-    }
-
-    private int calcularGirosExtra(Player jugador){
-        int perdidas=contarPiezasPerdidas(jugador);
-        if(perdidas>=4) return 3;
-        else if(perdidas>=2) return 2;
-        else return 1;
-    }
-
-    private int contarPiezasPerdidas(Player jugador){
-        int total=0;
-        for(int i=0;i<6;i++)
-            for(int j=0;j<6;j++)
-                if(piezas[i][j]!=null && piezas[i][j].getRetador()==jugador) total++;
-        return 6-total;
-    }
 
 }

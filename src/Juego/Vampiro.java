@@ -9,6 +9,7 @@ package Juego;
  * @author jerem
  */
 
+
 import LogicaJuego.Player;
 import java.util.ArrayList;
 import java.util.List;
@@ -50,5 +51,10 @@ public final class Vampiro extends Pieza {
     public List<int[]> obtenerCasillasConjurar(Pieza[][] tablero, int fila, int col) {
         // Vampiro no conjura nada, devuelve vacío
         return new ArrayList<>();
+    }
+    
+     @Override
+    public String getTipo() {
+        return "Vampiro";
     }
 }

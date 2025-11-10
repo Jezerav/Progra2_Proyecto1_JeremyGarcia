@@ -70,4 +70,9 @@ public class Necromancer extends Pieza {
                 : (retador.getUsername().equals("Jugador1") ? "zombie.png" : "zombie2.png");
         return new Zombie(retador, sprite, fila, col);
     }
+    
+     @Override
+    public String getTipo() {
+        return "Necromancer";
+    }
 }

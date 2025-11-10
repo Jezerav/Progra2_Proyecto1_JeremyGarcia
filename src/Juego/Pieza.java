@@ -42,7 +42,7 @@ public abstract class Pieza {
     }
 }
 
-
+    
     public ImageIcon getImagen() { return imagen; }
     public Player getRetador() { return retador; }
     public int getAtaque() { return ataque; }
@@ -64,5 +64,7 @@ public abstract class Pieza {
     public abstract List<int[]> obtenerCasillasEspecial(Pieza[][] tablero, int fila, int col, int opcion);
     // Método abstracto para conjurar
 public abstract List<int[]> obtenerCasillasConjurar(Pieza[][] tablero, int fila, int col);
+
+public abstract String getTipo();
 
 }
