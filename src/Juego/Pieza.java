@@ -49,15 +49,37 @@ public abstract class Pieza {
     public int getVida() { return vida; }
     public int getEscudo() { return escudo; }
 
-    public void recibirDanio(int cantidad) {
-        int danio = cantidad - escudo;
-        if(danio > 0) vida -= danio;
-        if(vida<0) vida=0;
+    public final void recibirDanio(int cantidad) {
+    if (escudo > 0) {
+        // Si hay escudo, se reduce primero el escudo
+        int restante = escudo - cantidad;
+        if (restante >= 0) {
+            escudo = restante; // Todo el daño fue absorbido
+            return;
+        } else {
+            escudo = 0; // Se rompió el escudo
+            cantidad = -restante; // Daño restante pasa a la vida
+        }
     }
 
-    public void recibirSanacion(int cantidad) { vida += cantidad; }
-    public void recibirDanioEspecial(int cantidad) { vida -= cantidad; if(vida<0) vida=0; }
-    public boolean estaViva() { return vida > 0; }
+    // Si no hay escudo, o ya se rompió
+    vida -= cantidad;
+    if (vida < 0) vida = 0;
+}
+
+
+    public final void recibirSanacion(int cantidad) { 
+        vida += cantidad; 
+    }
+    
+    public void recibirDanioEspecial(int cantidad) { 
+        vida -= cantidad; 
+        if(vida<0) 
+            vida=0; 
+    }
+    public boolean estaViva() { 
+        return vida > 0; 
+    }
 
     // Métodos abstractos obligatorios
     public abstract void accionEspecial(Pieza[][] tablero, int filaOrigen, int colOrigen, int filaDestino, int colDestino, int opcion);

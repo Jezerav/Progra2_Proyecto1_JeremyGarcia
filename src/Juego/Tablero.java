@@ -6,6 +6,7 @@
  */package Juego;
 
 import LogicaJuego.Player;
+import MenuPrincipal.MenuPrincipal;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -140,12 +141,19 @@ public class Tablero extends JFrame {
         }
         panelPrincipal.add(panelInferior, BorderLayout.SOUTH);
 
-        btnVolver.addActionListener(e -> dispose());
-        btnRetirar.addActionListener(e -> {
-            JOptionPane.showMessageDialog(this, jugadorActual.getUsername() + " se ha retirado. " +
-                    (jugadorActual == jugador1 ? jugador2.getUsername() : jugador1.getUsername()) + " gana.");
-            dispose();
-        });
+        btnVolver.addActionListener(e -> {
+    new MenuPrincipal(jugadorActual, null).setVisible(true); // pasar logica si la tienes
+    dispose();
+});
+
+btnRetirar.addActionListener(e -> {
+    JOptionPane.showMessageDialog(this, jugadorActual.getUsername() + " se ha retirado. " +
+            (jugadorActual == jugador1 ? jugador2.getUsername() : jugador1.getUsername()) + " gana.");
+    new MenuPrincipal(jugadorActual, null).setVisible(true); // pasar logica si la tienes
+    dispose();
+});
+
+
     }
 
     // -------------------- INICIALIZACIÓN --------------------
@@ -170,18 +178,21 @@ public class Tablero extends JFrame {
     // -------------------- RULETA --------------------
     private void iniciarRuleta() {
         // Crear icons
-        ImageIcon[] icons = new ImageIcon[6];
-        icons[0] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
-        icons[1] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
-        icons[2] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
-        icons[3] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
-        icons[4] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
-        icons[5] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
+        // Crear icons en orden: Vampiro - Lobo - Necromancer - Vampiro - Lobo - Necromancer
+    ImageIcon[] icons = new ImageIcon[6];
+    icons[0] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
+    icons[1] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
+    icons[2] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
+    icons[3] = new ImageIcon(getClass().getResource("/Recursos/vampiro.png"));
+    icons[4] = new ImageIcon(getClass().getResource("/Recursos/lobo.png"));
+    icons[5] = new ImageIcon(getClass().getResource("/Recursos/necromancer.png"));
 
-        for (int i = 0; i < icons.length; i++) {
-            Image img = icons[i].getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
-            icons[i] = new ImageIcon(img);
-        }
+// Escalar imágenes
+    for (int i = 0; i < icons.length; i++) {
+    Image img = icons[i].getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
+    icons[i] = new ImageIcon(img);
+}
+
 
         // Crear ruleta
         ruletaPanel = new RuletaPanel(icons);
@@ -255,8 +266,9 @@ public class Tablero extends JFrame {
         girandoRuleta = false;
 
         int indice = ruletaPanel.getIndiceSeleccionado();
-        String[] tipos = {"Lobo", "Lobo", "Vampiro", "Vampiro", "Necromancer", "Necromancer"};
+        String[] tipos = {"Vampiro", "Lobo", "Necromancer", "Vampiro", "Lobo", "Necromancer"};
         piezaActualRuleta = tipos[indice];
+
 
         lblRuleta.setText("Pieza Ruleta: " + piezaActualRuleta);
         JOptionPane.showMessageDialog(this, "PIEZA DISPONIBLE: " + piezaActualRuleta);
@@ -286,12 +298,18 @@ private int calcularGirosExtra(Player jugador){
     else return 1;
 }
 
-private int contarPiezasPerdidas(Player jugador){
-    int total=0;
-    for(int i=0;i<6;i++)
-        for(int j=0;j<6;j++)
-            if(piezas[i][j]!=null && piezas[i][j].getRetador()==jugador) total++;
-    return 6-total;
+    private int contarPiezasPerdidas(Player jugador) {
+        return contarPiezasPerdidasRecursivo(jugador, 0, 0, 0);
+    }
+
+// Método auxiliar recursivo
+    private int contarPiezasPerdidasRecursivo(Player jugador, int fila, int col, int total) {
+    if (fila >= 6) return 6 - total; // base: total perdido = 6 - total en tablero
+    if (col >= 6) return contarPiezasPerdidasRecursivo(jugador, fila + 1, 0, total);
+
+    if (piezas[fila][col] != null && piezas[fila][col].getRetador() == jugador) total++;
+
+    return contarPiezasPerdidasRecursivo(jugador, fila, col + 1, total);
 }
 
     // -------------------- MANEJO DE CLICK --------------------
@@ -469,26 +487,29 @@ private void manejarClickEspecialNecro(int fila, int col, Pieza p){
 
                     Pieza destino = piezas[fila][col];
 
-                    if(destino != null){
-                        destino.recibirDanio(z.getAtaque());
-                        if(!destino.estaViva()){
-                            // Zombie ocupa la casilla del enemigo
-                            piezas[fila][col] = z;
-                            piezas[filaZombie][colZombie] = null;
-                            z.setPosicion(fila, col);
+                    if (destino != null) {
+    destino.recibirDanio(z.getAtaque());
+    if (!destino.estaViva()) {
+        // Eliminar la pieza enemiga, PERO NO mover el zombie: el zombie SE QUEDA en su casilla original
+        piezas[fila][col] = null; // ya estaba destino, ahora eliminada
+        // no hacer piezas[fila][col] = z;
+        JOptionPane.showMessageDialog(this, "Zombie ha eliminado la pieza enemiga y permanece en su casilla.");
+    } else {
+        JOptionPane.showMessageDialog(this, "Zombie ha atacado. Vida restante del objetivo: " + destino.getVida());
+    }
+} else {
+    // Casilla vacía: mover el zombie como antes
+    piezas[fila][col] = z;
+    piezas[filaZombie][colZombie] = null;
+    z.setPosicion(fila, col);
 
-                            // Sprite según jugador
-                            if(z.getRetador().getUsername().equals(jugador1.getUsername()))
-                                z.setImagen("zombie.png");
-                            else
-                                z.setImagen("zombie2.png");
-                        }
-                    } else {
-                        // Casilla vacía: solo mover zombie
-                        piezas[fila][col] = z;
-                        piezas[filaZombie][colZombie] = null;
-                        z.setPosicion(fila, col);
-                    }
+    // Sprite según jugador
+    if (z.getRetador().getUsername().equals(jugador1.getUsername()))
+        z.setImagen("zombie.png");
+    else
+        z.setImagen("zombie2.png");
+}
+
                 }
             }
         }
@@ -605,15 +626,24 @@ private void seleccionarPieza(int fila, int col) {
             casillas[c[0]][c[1]].setBackground(especialColor);
         }
     }
-
-     private void limpiarMarcado(){
-        for(int i=0;i<6;i++) for(int j=0;j<6;j++)
-            casillas[i][j].setBackground((i+j)%2==0?Color.GRAY:Color.DARK_GRAY);
+    
+    private void limpiarMarcado() {
+        limpiarMarcadoRecursivo(0, 0);
         casillasDisponibles.clear();
         casillasEspeciales.clear();
-        modoEspecial=false;
-        necroOpcion=-1;
+        modoEspecial = false;
+        necroOpcion = -1;
         lblAtaqueEspecial.setText("Ataque Especial: Ninguno");
+    }
+
+// Método auxiliar recursivo
+    private void limpiarMarcadoRecursivo(int fila, int col) {
+        if (fila >= 6) return; // base
+        if (col >= 6) { limpiarMarcadoRecursivo(fila + 1, 0); return; }
+
+        casillas[fila][col].setBackground((fila + col) % 2 == 0 ? Color.GRAY : Color.DARK_GRAY);
+
+        limpiarMarcadoRecursivo(fila, col + 1); // siguiente columna
     }
     private void limpiarSeleccion(){
         if(botonSeleccionado!=null) botonSeleccionado.setBorder(BorderFactory.createLineBorder(Color.BLACK,1));
@@ -625,40 +655,44 @@ private void seleccionarPieza(int fila, int col) {
    private void resolverCombate(Pieza atacante, int filaDestino, int colDestino) {
     Pieza destino = piezas[filaDestino][colDestino];
 
+    // Caso 1: casilla destino VACÍA -> mover atacante
     if (destino == null) {
-        // Mover atacante a la casilla vacía
         piezas[filaDestino][colDestino] = atacante;
         piezas[seleccionFila][seleccionCol] = null;
 
-        // Actualizar posición si es Zombie
-        if(atacante instanceof Zombie){
+        // Actualizar posición si es Zombie (solo si se MOVIÓ)
+        if (atacante instanceof Zombie) {
             Zombie z = (Zombie) atacante;
             z.setPosicion(filaDestino, colDestino);
-            // Ajustar sprite según jugador
-            if(z.getRetador().getUsername().equals("Jugador1")) z.setImagen("zombie.png");
+            if (z.getRetador().getUsername().equals("Jugador1")) z.setImagen("zombie.png");
             else z.setImagen("zombie2.png");
         }
-
-    } else if (destino.getRetador() != atacante.getRetador()) {
+    } 
+    // Caso 2: hay enemigo -> aplicar daño, pero si muere NO mover al atacante (queda en su casilla)
+    else if (destino.getRetador() != atacante.getRetador()) {
         destino.recibirDanio(atacante.getAtaque());
 
         if (!destino.estaViva()) {
-            // El atacante ocupa la casilla del enemigo
-            piezas[filaDestino][colDestino] = atacante;
-            piezas[seleccionFila][seleccionCol] = null;
+            // Eliminar la pieza enemiga (la casilla queda vacía)
+            piezas[filaDestino][colDestino] = null;
 
-            // Actualizar posición si es Zombie
-            if(atacante instanceof Zombie){
-                Zombie z = (Zombie) atacante;
-                z.setPosicion(filaDestino, colDestino);
-                if(z.getRetador().getUsername().equals("Jugador1")) z.setImagen("zombie.png");
-                else z.setImagen("zombie2.png");
-            }
+            // IMPORTANTE: no mover al atacante; queda en (seleccionFila, seleccionCol)
+            // Si necesitas algún efecto (animación, mensaje), hazlo aquí:
+            JOptionPane.showMessageDialog(this, "Pieza eliminada. El atacante permanece en su lugar.");
+        } else {
+            // Si el enemigo no muere, no hay cambio en posiciones
+            JOptionPane.showMessageDialog(this,
+            "SE ATACÓ A " + destino.getTipo() + 
+            " Y SE LE QUITARON " + atacante.getAtaque() + " PUNTOS.\n" +
+            "LE QUEDAN " + destino.getEscudo() + " DE ESCUDO Y " + destino.getVida() + " DE VIDA.");
+
         }
     }
 
+    // Actualizar UI
     actualizarTablero();
 }
+
 
 
 

@@ -41,11 +41,14 @@ public class RuletaPanel extends JPanel {
         repaint();
     }
 
-    // Devuelve el índice de la pieza que está arriba (flecha amarilla)
-    public int getIndiceSeleccionado() {
-        double anguloArriba = (360 - anguloPiezas + 30) % 360; // centramos sector
-        return (int) (anguloArriba / 60) % 6;
-    }
+    // Devuelve el índice de la pieza apuntada por la flecha amarilla (arriba)
+public int getIndiceSeleccionado() {
+    // Ajustamos sentido de rotación y centrado
+    double anguloArriba = (360 - (anguloPiezas + 30)) % 360; // corregimos desplazamiento
+    int indice = ((int) Math.floor(anguloArriba / 60) + -1) % 6;
+    return (indice + 6) % 6; // normalizamos por seguridad
+}
+
 
     @Override
     protected void paintComponent(Graphics g) {
